@@ -1,0 +1,45 @@
+name: Phase 1 CI - Jenkins to GitHub Actions (JFrog)
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-publish-jfrog:
+    # 1. Use GitHub's own hosted infrastructure (Zero setup for you)
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+          fetch-tags: true
+
+      - name: Set up JDK 11 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'corretto'
+          cache: 'gradle'
+
+      - name: Build and Test with Gradle
+        run: ./gradlew --info --stacktrace clean build
+
+      - name: Publish JUnit Test Report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure() 
+        with:
+          report_paths: '**/build/test-results/**/*.xml'
+
+      # 2. Publish to JFrog using the existing Gradle plugin
+      - name: Publish Artifact to JFrog
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        env:
+          # Pulls the JFrog credentials securely from GitHub Secrets
+          ARTIFACTORY_USER: ${{ secrets.ARTIFACTORY_USER }}
+          ARTIFACTORY_PASS: ${{ secrets.ARTIFACTORY_PASS }}
+        run: |
+          ./gradlew artifactoryPublish
