@@ -2,7 +2,7 @@ name: Test CI - Build and Store in GitHub
 
 on:
   push:
-    branches: [ "feature/ci-test" ] # Run this on your test branch
+    branches: main 
 
 jobs:
   build-and-test:
@@ -19,6 +19,13 @@ jobs:
           java-version: '11'
           distribution: 'corretto'
           cache: 'gradle'
+
+      # --- THE FIX ---
+      - name: Fix gradlew line endings and permissions
+        run: |
+          sed -i 's/\r$//' gradlew
+          chmod +x gradlew
+      # ---------------
 
       # 1. Build the code (but DO NOT try to publish to JFrog)
       # Notice we dropped 'artifactoryPublish'
