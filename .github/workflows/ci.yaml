@@ -1,0 +1,35 @@
+name: Test CI - Build and Store in GitHub
+
+on:
+  push:
+    branches: [ "feature/ci-test" ] # Run this on your test branch
+
+jobs:
+  build-and-test:
+    # We can use GitHub's standard runners since we aren't talking to the TELUS VPN
+    runs-on: ubuntu-latest 
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11 (Corretto)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '11'
+          distribution: 'corretto'
+          cache: 'gradle'
+
+      # 1. Build the code (but DO NOT try to publish to JFrog)
+      # Notice we dropped 'artifactoryPublish'
+      - name: Build with Gradle
+        run: ./gradlew --info --stacktrace clean build
+
+      # 2. Upload the finished .jar file to GitHub's UI so you can see it worked
+      - name: Upload Artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-compiled-artifact
+          # Gradle usually puts compiled .jar files in the build/libs/ directory
+          path: build/libs/*.jar 
+          retention-days: 5
