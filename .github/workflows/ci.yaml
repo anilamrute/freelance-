@@ -30,6 +30,17 @@ jobs:
           
           git tag
 
+      - name: Make Gradle Wrapper Executable
+        run: chmod +x ./gradlew
+
+      - name: Verify Tools
+        run: |
+          java -version
+          ./gradlew --version
+
+      - name: Compile and Test
+        run: ./gradlew --info --stacktrace clean build
+
       # [PoC MODE]: We must manually set up Java 11 because we don't have the baked image yet.
       # [FUTURE STATE]: You can delete this entire step later, as `mise` will inject Corretto 11.
       - name: MOCK RUNNER TOOLING - Setup Java 11
