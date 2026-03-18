@@ -1,82 +1,57 @@
-name: PoC - MedAccess Core Libs Build
+name: Build MedAccess Core Libs
 
 on:
   push:
-    branches:
-      - '**'
-  workflow_dispatch: # Added this so you can trigger the PoC manually from the UI!
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+# Best Practice: Explicitly define minimal permissions
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
-    # [PoC MODE]: Using a standard cloud runner for now.
-    # [FUTURE STATE]: Change this to `runs-on: medaccess-dev-runner` once ARC is ready.
+  build:
+    name: Build and Test Core Libs
+    # Replace with your actual ARC runner scale set name from your consumer config
     runs-on: ubuntu-latest 
-    timeout-minutes: 60
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
+          # CRITICAL: Your Jenkinsfile noted that the build depends on accurate tags.
+          # Setting fetch-depth to 0 fetches all history for all branches and tags.
           fetch-depth: 0 
 
-      - name: Custom Git Tag & Env Setup
-        run: |
-          git tag -l | xargs git tag -d || echo "No tags to delete"
-          git fetch --tags --force
-
-          git rev-parse HEAD > .git/commit-id
-          echo "GIT_COMMIT=$(cat .git/commit-id)" >> $GITHUB_ENV
-          echo "GIT_BRANCH=${GITHUB_REF_NAME}" >> $GITHUB_ENV
-          
-          git tag
-
-      - name: Make Gradle Wrapper Executable
-        run: chmod +x ./gradlew
-
-      - name: Verify Tools
-        run: |
-          java -version
-          ./gradlew --version
-
-      - name: Compile and Test
-        run: ./gradlew --info --stacktrace clean build
-
-      # [PoC MODE]: We must manually set up Java 11 because we don't have the baked image yet.
-      # [FUTURE STATE]: You can delete this entire step later, as `mise` will inject Corretto 11.
-      - name: MOCK RUNNER TOOLING - Setup Java 11
+      - name: Set up JDK 11 (Corretto)
         uses: actions/setup-java@v4
         with:
           java-version: '11'
-          distribution: 'corretto'
+          distribution: 'corretto' # Matching the tool from your Jenkinsfile
+          cache: 'gradle'          # Built-in Gradle caching for faster subsequent runs
 
-      - name: Verify Tools
-        run: |
-          java -version
-          ./gradlew --version
+      - name: Make gradlew executable
+        run: chmod +x ./gradlew
 
-      - name: Compile and Test
-        # Legacy Artifactory is bypassed. We just build.
+      - name: Build with Gradle
+        # Note: 'artifactoryPublish' is intentionally omitted per your Phase 1 requirements.
+        # We are only verifying that the project compiles and tests pass successfully.
         run: ./gradlew --info --stacktrace clean build
 
-      - name: Upload JUnit Test Results
-        if: always()
+      - name: Archive Test Results
+        if: always() # Run this step even if the build/tests fail
         uses: actions/upload-artifact@v4
         with:
           name: junit-test-results
-          path: '**/build/test-results/**/*.xml'
-          retention-days: 25
+          # Matching the glob pattern from your Jenkinsfile 'junit' step
+          path: '**/build/test-results/**/*.xml' 
+          retention-days: 7
 
-      # [PoC MODE]: Capturing the JARs to prove the build succeeded.
-      - name: Upload Build Artifacts
+      - name: Archive JAR Artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: compiled-binaries
-          path: |
-            **/build/libs/*.jar
-          retention-days: 5
-
-      - name: Workspace Cleanup
-        if: always()
-        run: |
-          rm -rf ${{ github.workspace }}/* || true
-          rm -rf ${{ github.workspace }}/.* || true
+          name: medaccess-core-libs-jars
+          path: '**/build/libs/*.jar'
+          retention-days: 1 # Short retention since we aren't publishing yet
