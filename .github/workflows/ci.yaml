@@ -1,4 +1,4 @@
-name: Build MedAccess Core Libs
+name: Build MedAccess Core Lib
 
 on:
   push:
